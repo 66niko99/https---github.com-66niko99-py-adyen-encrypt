@@ -9,7 +9,9 @@ import base64
 
 
 class encryptor:
-    def __init__(self, adyen_public_key, adyen_version='_0_1_8', adyen_prefix='adyenjs'):
+    def __init__(
+        self, adyen_public_key, adyen_version="_0_1_8", adyen_prefix="adyenjs"
+    ):
         """
         :param adyen_public_key: adyen key, looks like this: "10001|A2370..."
         :param adyen_version: version of adyen encryption, looks like this: _0_1_8
@@ -33,17 +35,21 @@ class encryptor:
         # Encrypt the actual card data with symmetric encryption
         aes_key = self.generate_aes_key()
         nonce = self.generate_nonce()
-        encrypted_card_data = self.encrypt_with_aes_key(aes_key, nonce, bytes(card_data_json_string, encoding='utf-8'))
+        encrypted_card_data = self.encrypt_with_aes_key(
+            aes_key, nonce, bytes(card_data_json_string, encoding="utf-8")
+        )
         encrypted_card_component = nonce + encrypted_card_data
 
         # Encrypt the AES Key with asymmetric encryption
         public_key = self.decode_adyen_public_key(self.adyen_public_key)
         encrypted_aes_key = self.encrypt_with_public_key(public_key, aes_key)
 
-        return "{}{}${}${}".format(self.adyen_prefix,
-                                   self.adyen_version,
-                                   base64.standard_b64encode(encrypted_aes_key).decode(),
-                                   base64.standard_b64encode(encrypted_card_component).decode())
+        return "{}{}${}${}".format(
+            self.adyen_prefix,
+            self.adyen_version,
+            base64.standard_b64encode(encrypted_aes_key).decode(),
+            base64.standard_b64encode(encrypted_card_component).decode(),
+        )
 
     def encrypt_card(self, card: str, cvv: str, month: str, year: str):
         """
@@ -55,10 +61,10 @@ class encryptor:
         """
 
         data = {
-            'card': self.encrypt_field('number', card),
-            'cvv': self.encrypt_field('cvc', cvv),
-            'month': self.encrypt_field('expiryMonth', month),
-            'year': self.encrypt_field('expiryYear', year),
+            "card": self.encrypt_field("number", card),
+            "cvv": self.encrypt_field("cvc", cvv),
+            "month": self.encrypt_field("expiryMonth", month),
+            "year": self.encrypt_field("expiryYear", year),
         }
 
         return data
@@ -70,11 +76,10 @@ class encryptor:
         :return: a dict to be encrypted
         """
 
-        generation_time = datetime.now(tz=pytz.timezone('UTC')).strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        field_data_json = {
-            name: value,
-            "generationtime": generation_time
-        }
+        generation_time = datetime.now(tz=pytz.timezone("UTC")).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+        field_data_json = {name: value, "generationtime": generation_time}
 
         return field_data_json
 
@@ -85,24 +90,37 @@ class encryptor:
         # Encrypt the actual card data with symmetric encryption
         aes_key = self.generate_aes_key()
         nonce = self.generate_nonce()
-        encrypted_card_data = self.encrypt_with_aes_key(aes_key, nonce, bytes(card_data_json_string, encoding='utf-8'))
+        encrypted_card_data = self.encrypt_with_aes_key(
+            aes_key, nonce, bytes(card_data_json_string, encoding="utf-8")
+        )
         encrypted_card_component = nonce + encrypted_card_data
 
         # Encrypt the AES Key with asymmetric encryption
         public_key = self.decode_adyen_public_key(self.adyen_public_key)
         encrypted_aes_key = self.encrypt_with_public_key(public_key, aes_key)
 
-        return "{}{}${}${}".format(self.adyen_prefix,
-                                   self.adyen_version,
-                                   base64.standard_b64encode(encrypted_aes_key).decode(),
-                                   base64.standard_b64encode(encrypted_card_component).decode())
+        return "{}{}${}${}".format(
+            self.adyen_prefix,
+            self.adyen_version,
+            base64.standard_b64encode(encrypted_aes_key).decode(),
+            base64.standard_b64encode(encrypted_card_component).decode(),
+        )
 
     @staticmethod
     def decode_adyen_public_key(encoded_public_key):
-        backend = default_backend()
         key_components = encoded_public_key.split("|")
-        public_number = rsa.RSAPublicNumbers(int(key_components[0], 16), int(key_components[1], 16))
-        return backend.load_rsa_public_numbers(public_number)
+        if len(key_components) != 2:
+            raise ValueError(
+                "Invalid Adyen public key format. Expected format: 'exponent|modulus'"
+            )
+
+        exponent = int(key_components[0], 16)  # Convert hexadecimal string to integer
+        modulus = int(key_components[1], 16)  # Convert hexadecimal string to integer
+
+        public_numbers = rsa.RSAPublicNumbers(exponent, modulus)
+        public_key = public_numbers.public_key(default_backend())
+
+        return public_key
 
     @staticmethod
     def encrypt_with_public_key(public_key, plaintext):
